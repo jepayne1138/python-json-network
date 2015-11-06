@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+import argparse
 import socket
 import sys
 import os
@@ -27,14 +28,29 @@ def send_file(file, connection: SocketClientBase):
         chunk = file.read(connection.chunksize)  # type: bytes
 
 def main():
-    ADDRESS = 'localhost'
-    PORT = 13579
-    CHUNKSIZE = 1024
+    # Parse arguments
+    parser = argparse.ArgumentParser(
+        description='Connects to a server and sends the contents of a file.'
+    )
+    parser.add_argument('file', type=str,
+        help='Path to the file that should be uploaded'
+    )
+    parser.add_argument('-a', '--address',
+        default='localhost', type=str,
+        help='Server address'
+    )
+    parser.add_argument('-p', '--port',
+        default=13579, type=int,
+        help='Port number'
+    )
+    parser.add_argument('-c', '--chunksize',
+        default=1024, type=int,
+        help='Chunk size to read in from connections'
+    )
+    args = parser.parse_args()
 
-    filename = 'send.txt'  # type: str
-
-    with SocketClientBase(ADDRESS, PORT, CHUNKSIZE) as client_sock:  # type: SocketClientBase
-        with open(filename, 'rb') as out_file:  # type: IO[bytes]
+    with SocketClientBase(args.address, args.port, args.chunksize) as client_sock:  # type: SocketClientBase
+        with open(args.file, 'rb') as out_file:  # type: IO[bytes]
             send_file(out_file, client_sock)
 
 if __name__ == '__main__':
