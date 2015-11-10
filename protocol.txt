@@ -13,13 +13,16 @@ Section 1.  JSON Size Header
 
 
 Section 2.  JSON Data
-    - Data serialized with JSON
+    - Data serialized with JSON (UTF-8 encoded string by default)
     - Can contain any data, up to the server to interpret
     - Reserved keyword "data_blocks":
         - Value is a list of all additional data blocks
         - Each list entry contains at least the following keywords:
             - "name": Used to reference data from other entries in Section 2
             - "size": Size in bytes of the data in Section 3
+            - "encoding": String name of encoding if the data should be interpreted as string
+                - If present, should automatically be returned as string
+                - Must be acceptable input to Python3.5 bytes.decode() encoding parameter (dflt: 'utf-8')
         - Data in Section 3 is to be concatenated contiguously
         - The order of the "data_blocks" list must match the order of the concatenated data
 
