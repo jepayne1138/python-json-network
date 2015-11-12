@@ -7,6 +7,7 @@ import os
 import tempfile
 from contextlib import closing
 from typing import *
+import logging
 
 
 def run_server(address: str, port: int, chunksize: int, out_dir: str=None, backlog: int=None):
@@ -30,6 +31,10 @@ def run_server(address: str, port: int, chunksize: int, out_dir: str=None, backl
 
 
 def main():
+    # Get Logger
+    logging.basicConfig(level=logging.NOTSET)
+    log = logging.getLogger(__name__)
+
     # Parse arguments
     parser = argparse.ArgumentParser(
         description='Runs a server that copies received data to a new file.'
@@ -56,6 +61,8 @@ def main():
     )
     args = parser.parse_args()
 
+    log.info('To learn how to configure the server, run with -h flag.')
+    log.info('Running server on {address}:{port}...'.format(**args.__dict__))
     run_server(args.address, args.port, args.chunksize, args.directory, args.backlog)
 
 
