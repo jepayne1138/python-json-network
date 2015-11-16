@@ -7,25 +7,42 @@ import os
 import tempfile
 from contextlib import closing
 from typing import *
+import threading
 
 
+BUFFER_SIZE = 65536
 
-class SocketClientBase(socket.socket):
 
-    def __init__(self, address: str, port: int, chunksize: int):
+class Client(threading.Thread):
+    """Thread that manages all client interaction with the server.
+
+    Creates a new socket connection for every requested
+    """
+
+    def __init__(self, address: str, port: int, buffer_size: int=BUFFER_SIZE):
+        self.address = address  # type: str
+        self.port = port  # type: int
+        self.buffer_size = buffer_size  # type: int
+
+    def close(self):
+        pass
+
+class ClientSocket(socket.socket):
+
+    def __init__(self, address: str, port: int, buffer_size: int=BUFFER_SIZE):
         super().__init__()
         self.address = address  # type: str
         self.port = port  # type: int
-        self.chunksize = chunksize  # type: int
+        self.buffer_size = buffer_size  # type: int
         super().connect((self.address, self.port))
 
 
 
-def send_file(file, connection: SocketClientBase):
-    chunk = file.read(connection.chunksize)  # type: bytes
+def send_file(file, connection: ClientSocket):
+    chunk = file.read(connection.buffer_size)  # type: bytes
     while (chunk):
         connection.send(chunk)
-        chunk = file.read(connection.chunksize)  # type: bytes
+        chunk = file.read(connection.buffer_size)  # type: bytes
 
 def main():
     # Parse arguments
@@ -43,13 +60,13 @@ def main():
         default=13579, type=int,
         help='Port number'
     )
-    parser.add_argument('-c', '--chunksize',
+    parser.add_argument('-b', '--buffer_size',
         default=1024, type=int,
         help='Chunk size to read in from connections'
     )
     args = parser.parse_args()
 
-    with SocketClientBase(args.address, args.port, args.chunksize) as client_sock:  # type: SocketClientBase
+    with ClientSocket(args.address, args.port, args.buffer_size) as client_sock:  # type: ClientSocket
         with open(args.file, 'rb') as out_file:  # type: IO[bytes]
             send_file(out_file, client_sock)
 
