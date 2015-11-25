@@ -1,33 +1,80 @@
 #! /usr/bin/env python3
 
 import argparse
-import socket
 import sys
 import os
 import tempfile
 from contextlib import closing
 from typing import *
 import logging
+import socket
+import threading
+import SocketServer
+import queue
+import .protocol
 
 
-def run_server(address: str, port: int, chunksize: int, out_dir: str=None, backlog: int=None):
-    out_dir = os.getcwd() if out_dir is None else out_dir
+class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 
-    with socket.socket() as sock:  # type: socket.socket
-        sock.bind((address, port))
-        sock.listen() if backlog is None else sock.listen(backlog)
-
+    def handler(self):
+        chunk_list = []  # type: List[bytes]
         while True:
-            conn, _ = sock.accept()  # type: socket.socket, (str, int)
+            tmp = self.request.recv(4096)  # type: bytes
+            if not tmp:
+                break
+            chunk_list.append(tmp)
+        data = b''.join(chunk_list)  # type: bytes
+        recv_queue.put(protocol.unpackage(data))
 
-            fd, in_file_name = tempfile.mkstemp(dir=out_dir)  # type: int, str
-            with closing(os.fdopen(fd, 'wb')) as in_file:  # type: IO[bytes]
-                # Read incoming information and write to a file
-                chunk = conn.recv(chunksize)  # type: bytes
-                while (chunk):
-                    in_file.write(chunk)
-                    chunk = conn.recv(chunksize)  # type: bytes
-            conn.close()
+
+class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
+    pass
+
+
+class Endpoint:
+
+    send_queue = queue.Queue()
+    recv_queue = queue.Queue()
+
+    def __init__(self, address: str, port: int):
+        self.address = address  # type: str
+        self.port = port  # type: int
+        self.server = ThreadedTCPServer(
+            (self.address, self.port),
+            ThreadedTCPRequestHandler
+        )  # type: ThreadedTCPServer
+        self.server_thread = threading.Thread(target=server.serve_forever)  # type: Thread
+        # Set up server thread to exit when the main thread exits
+        self.server_thread.daemon = True  # type: bool
+
+    def run(self, address: str, port: int):
+        print('Starting the server...')
+        self.server_thread.start()
+
+    def close(self):
+        self.server.close()
+        self.server_thread.join()
+
+
+
+# def run_server(address: str, port: int, chunksize: int, out_dir: str=None, backlog: int=None):
+#     out_dir = os.getcwd() if out_dir is None else out_dir
+
+#     with socket.socket() as sock:  # type: socket.socket
+#         sock.bind((address, port))
+#         sock.listen() if backlog is None else sock.listen(backlog)
+
+#         while True:
+#             conn, _ = sock.accept()  # type: socket.socket, (str, int)
+
+#             fd, in_file_name = tempfile.mkstemp(dir=out_dir)  # type: int, str
+#             with closing(os.fdopen(fd, 'wb')) as in_file:  # type: IO[bytes]
+#                 # Read incoming information and write to a file
+#                 chunk = conn.recv(chunksize)  # type: bytes
+#                 while (chunk):
+#                     in_file.write(chunk)
+#                     chunk = conn.recv(chunksize)  # type: bytes
+#             conn.close()
 
 
 def main():

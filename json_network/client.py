@@ -8,21 +8,28 @@ import tempfile
 from contextlib import closing
 from typing import *
 import threading
+import queue
 
 
 BUFFER_SIZE = 65536
 
 
-class Client(threading.Thread):
-    """Thread that manages all client interaction with the server.
+class Endpoint:
+    """Class that manages a network endpoint with two-way communication.
 
-    Creates a new socket connection for every requested
+    Creates a new socket connection for every request
     """
 
     def __init__(self, address: str, port: int, buffer_size: int=BUFFER_SIZE):
         self.address = address  # type: str
         self.port = port  # type: int
         self.buffer_size = buffer_size  # type: int
+
+        self.recv_queue = queue.Queue()
+        self.send_queue = queue.Queue()
+
+        self.recv_thread = threading.Thread()
+        self.send_thread = threading.Thread()
 
     def close(self):
         pass
