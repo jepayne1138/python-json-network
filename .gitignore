@@ -1,7 +1,7 @@
 venv*/
 *.txt
 __pycache__/
-test.py
+test*.py
 
 # Whitelist
 !protocol.txt

@@ -84,7 +84,9 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         #print(self.client_address)
         chunk_list = []  # type: List[bytes]
         while True:
-            tmp = self.request.recv(4096)  # type: bytes
+            tmp = self.request.recv(
+                self.server.parent.buffer_size
+            )  # type: bytes
             if not tmp:
                 break
             chunk_list.append(tmp)
@@ -108,12 +110,16 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         super().serve_forever()
         log.error('Failed to server forever!')
 
+
 class Endpoint:
 
 
     def __init__(
             self, address: str='localhost', port: int=9999,
-            server: ThreadedTCPServer=ThreadedTCPServer):
+            server: ThreadedTCPServer=ThreadedTCPServer,
+            buffer_size: int=4096):
+        self.buffer_size = buffer_size  # type: int
+
         # Create new send and receive queues
         self.send_queue = queue.Queue()  # type: queue.Queue[SendPackage]
         self.recv_queue = queue.Queue()  # type: queue.Queue[RecvPackage]
