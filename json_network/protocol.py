@@ -20,8 +20,9 @@ Section 1.  Size of JSON Header
           data
 
 Section 2.  JSON Data
-    - Data serialized with JSON (UTF-8 encoded string by default)
-    - Can contain any data, up to the server to interpret
+    - Data dict serialized with JSON (UTF-8 encoded string by default)
+    - Reserved keyword 'data_dict' (by default, can be changed):
+        - Can contain any data, up to the server to interpret
     - Reserved keyword 'data_blocks' (by default, can be changed):
         - Value is a list of metadata for all additional data blocks
         - Each list entry contains at least the following keywords:
@@ -44,14 +45,15 @@ Section 3.  Extra Data Blocks
 ############################################################################
 
 Attributes:
-    DATABLOCK_KEY (str): Key for serialized metadata of extra data blocks.
+    DATA_BLOCK_KEY (str): Key for serialized metadata of extra data blocks.
 """
 import struct
 import json
 from typing import Optional, List, IO, Tuple
 
 
-DATABLOCK_KEY = 'data_blocks'
+DATA_DICT_KEY = 'data_dict'
+DATA_BLOCK_KEY = 'data_blocks'
 
 
 class DataBlock:
@@ -177,32 +179,30 @@ def package(
     Exceptions:
       ValueError:  Disallowed key in input data dictionary.
     """
-    # Validate error parameter
-    error = error if error in ['strict', 'replace', 'ignore'] else 'strict'
+    serialize_data = {}
 
-    # Validate input data dict
-    # Check for key 'data_blocks' (reserved for protocol use)
-    if DATABLOCK_KEY in data:
-        raise ValueError(
-            '"{}" key not allowed in input dict'.format(DATABLOCK_KEY)
-        )
+    # Validate error parameter
+    errors = errors if errors in ['strict', 'replace', 'ignore'] else 'strict'
 
     # Prepare the extra data blocks if any exist
     # If there are any data_blocks, add a list for the metadata
     if len(data_blocks) > 0:
-        data[DATABLOCK_KEY] = []
+        serialize_data[DATA_BLOCK_KEY] = []  # type: List
 
     # Add the data block metadata to the data dict
     for data_block in data_blocks:
-        data[DATABLOCK_KEY].append(data_block.metadata())
+        serialize_data[DATA_BLOCK_KEY].append(data_block.metadata())
     # Concatenate all binary data
     data_block_bytes = b''.join(
         [block.data for block in data_blocks]
     )  # type: bytes
 
+    # Add the given data to the serialization dict
+    serialize_data[DATA_DICT_KEY] = data  # type: Dict
+
     # Convert input data dict to encoded byte string
-    data_str = json.dumps(data, ensure_ascii=False)  # type: str
-    data_bytes = data_str.encode(encoding=encoding, error=error)  # type: bytes
+    data_str = json.dumps(serialize_data, ensure_ascii=False)  # type: str
+    data_bytes = data_str.encode(encoding=encoding, errors=errors)  # type: bytes
 
     # Get size of encoded JSON in number of bytes
     header_value = len(data_bytes)  # type: int
@@ -213,12 +213,13 @@ def package(
 
 
 def unpackage(
-        data: bytes, header_fmt: str='>L', encoding: str='utf-8',
+        serialized_data: bytes, header_fmt: str='>L', encoding: str='utf-8',
         errors: str='strict') -> Tuple[dict, List[DataBlock]]:
     """Unpackages a byte string to its original dict and DataBlocks
 
     Args:
-        data (bytes): Byte string to be unpackaged according to the protocol
+        serialized_data (bytes): Byte string to be unpackaged according to
+            the protocol
         header_fmt (str): Format string for unpacking the integer
             representing the size of the JSON as binary data. (default='>L')
         encoding (str): Encoding for the JSON byte string. (default='utf-8')
@@ -227,25 +228,31 @@ def unpackage(
             default='strict')
 
     Returns:
-        bytes: Byte string of a the dictionary serialized as JSON and all
-               DataBlocks concatenated at the end.
+        Tuple[Dict, List[DataBlock]]: Tuple with a dict of all original
+            input data and a list of DataBlock objects if any exist.
     """
     # Validate error parameter
-    error = error if error in ['strict', 'replace', 'ignore'] else 'strict'
+    errors = errors if errors in ['strict', 'replace', 'ignore'] else 'strict'
 
     # Get header size from the first bytes of the data based on header format
     header_size = struct.calcsize(header_fmt)  # type: int
-    header_bytes = data[:header_size]  # type: bytes
+    header_bytes = serialized_data[:header_size]  # type: bytes
     header_value = struct.unpack(header_fmt, header_bytes)[0]  # type: int
 
-    data_bytes = data[header_size:header_size+header_value]  # type: bytes
-    data_str = data_bytes.decode(encoding, error=error)  # type: str
+    data_bytes = serialized_data[header_size:header_size+header_value]
+        # type: bytes
+    data_str = data_bytes.decode(encoding, errors=errors)  # type: str
     data_dict = json.loads(data_str)  # type: dict
 
     blocks = []
-    if DATABLOCK_KEY in data_dict:
+
+    # Unpackage the original input dictionary
+    unpacked_data = data_dict.get(DATA_DICT_KEY, {})
+
+    # Unpackage any data blocks
+    if DATA_BLOCK_KEY in data_dict:
         block_start = header_size+header_value  # type: int
-        for metadata in data_dict[DATABLOCK_KEY]:  # type: dict
+        for metadata in data_dict[DATA_BLOCK_KEY]:  # type: dict
             block = DataBlock(
                 name=metadata['name'],
                 data=data[block_start:block_start+metadata['size']],
@@ -259,7 +266,4 @@ def unpackage(
             # Adjust block starting point for next block
             block_start += metadata['size']
 
-        # Remote the block metadata as it was not in the original input dict
-        del data_dict[DATABLOCK_KEY]
-
-    return (data_dict, blocks)
+    return (unpacked_data, blocks)
