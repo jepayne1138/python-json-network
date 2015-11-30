@@ -49,14 +49,19 @@ Attributes:
 """
 import struct
 import json
-from typing import Optional, List, IO, Tuple
+import logging
+from typing import IO, Optional, List, Tuple
 
+# Set up logging
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
 DATA_DICT_KEY = 'data_dict'
 DATA_BLOCK_KEY = 'data_blocks'
 
 
 class DataBlock:
+
     """Container for managing data and metadata for serializing binary data
 
     Manages a byte string and associated metadata in a standardized
@@ -154,7 +159,6 @@ class DataBlock:
         return metadata_dict
 
 
-
 def package(
         data: dict, data_blocks: List[DataBlock]=[],
         header_fmt: str='>L', encoding: str='utf-8',
@@ -239,8 +243,9 @@ def unpackage(
     header_bytes = serialized_data[:header_size]  # type: bytes
     header_value = struct.unpack(header_fmt, header_bytes)[0]  # type: int
 
-    data_bytes = serialized_data[header_size:header_size+header_value]
-        # type: bytes
+    data_bytes = serialized_data[
+        header_size:header_size+header_value
+    ]  # type: bytes
     data_str = data_bytes.decode(encoding, errors=errors)  # type: str
     data_dict = json.loads(data_str)  # type: dict
 
@@ -255,7 +260,7 @@ def unpackage(
         for metadata in data_dict[DATA_BLOCK_KEY]:  # type: dict
             block = DataBlock(
                 name=metadata['name'],
-                data=data[block_start:block_start+metadata['size']],
+                data=serialized_data[block_start:block_start+metadata['size']],
                 encoding=metadata['encoding'] \
                     if 'encoding' in metadata else None,
             )  # type: DataBlock
