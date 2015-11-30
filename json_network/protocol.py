@@ -50,7 +50,7 @@ Attributes:
 import struct
 import json
 import logging
-from typing import IO, Optional, List, Tuple
+from typing import IO, Optional, List, Tuple, Dict
 
 # Set up logging
 log = logging.getLogger(__name__)
@@ -139,7 +139,7 @@ class DataBlock:
         self.encoding = encoding  # type: Optional[str]
         self.size = len(data)  # type: int
 
-    def metadata(self) -> dict:
+    def metadata(self) -> Dict:
         """Prepares the metadata dict for this data block
 
         Creates and returns a dictionary of metadata for this datablock.
@@ -147,12 +147,12 @@ class DataBlock:
         section.
 
         Returns:
-            dict: Contains name, size, and encoding (if not None) metadata.
+            Dict: Contains name, size, and encoding (if not None) metadata.
         """
         metadata_dict = {
             'name': self.name,
             'size': self.size,
-        }  # type: dict
+        }  # type: Dict
         # Only add encoding if an encoding was given
         if self.encoding:
             metadata_dict['encoding'] = self.encoding  # type: str
@@ -160,13 +160,13 @@ class DataBlock:
 
 
 def package(
-        data: dict, data_blocks: List[DataBlock]=[],
+        data: Dict, data_blocks: List[DataBlock]=[],
         header_fmt: str='>L', encoding: str='utf-8',
         errors: str='strict') -> bytes:
     """Packages a dict and optional DataBlocks according to the protocol
 
     Args:
-        data (dict): Data to be serialized and packaged into a byte string.
+        data (Dict): Data to be serialized and packaged into a byte string.
         data_blocks (List[DataBlock]): Zero or more DataBlock instances to
             be concatenated to the byte string. (default=[])
         header_fmt (str): Format string for packaging an integer
@@ -218,7 +218,7 @@ def package(
 
 def unpackage(
         serialized_data: bytes, header_fmt: str='>L', encoding: str='utf-8',
-        errors: str='strict') -> Tuple[dict, List[DataBlock]]:
+        errors: str='strict') -> Tuple[Dict, List[DataBlock]]:
     """Unpackages a byte string to its original dict and DataBlocks
 
     Args:
@@ -247,7 +247,7 @@ def unpackage(
         header_size:header_size+header_value
     ]  # type: bytes
     data_str = data_bytes.decode(encoding, errors=errors)  # type: str
-    data_dict = json.loads(data_str)  # type: dict
+    data_dict = json.loads(data_str)  # type: Dict
 
     blocks = []
 
@@ -257,7 +257,7 @@ def unpackage(
     # Unpackage any data blocks
     if DATA_BLOCK_KEY in data_dict:
         block_start = header_size+header_value  # type: int
-        for metadata in data_dict[DATA_BLOCK_KEY]:  # type: dict
+        for metadata in data_dict[DATA_BLOCK_KEY]:  # type: Dict
             block = DataBlock(
                 name=metadata['name'],
                 data=serialized_data[block_start:block_start+metadata['size']],
