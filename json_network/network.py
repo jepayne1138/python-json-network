@@ -69,6 +69,12 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
             )
         )
 
+        # Call Endpoint.received() method which can be used to perform an
+        # action upon receiving a new package.
+        # NOTE:  Endpoint.received() execution will still be executed from
+        #        the recv_thread thread!
+        self.server.parent.received()
+
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
@@ -105,13 +111,29 @@ class Endpoint:
 
         # Create threads
         self.recv_thread = threading.Thread(target=self.server.serve_forever)
-        self.send_thread = threading.Thread(target=self.send_loop)
+        self.send_thread = threading.Thread(target=self._send_loop)
 
         # Set up threads to exit when the main thread exits
         self.recv_thread.daemon = True
         self.send_thread.daemon = True
 
-    def send_loop(self):
+        # Running flag
+        self.running = False
+
+    def _send_loop(self):
+        """Loop for sending packages off the send queue in a separate thread
+
+        Loops checking the send queue for packages that need to be sent and
+        sends them in order.
+
+        Placing None on the send queue will break this loops when it is
+        processes, and no more send requests after that point will be sent.
+
+        Blocks on trying to get from an empty queue until something to send.
+
+        This should never be called from the main thread, it should only be
+        run by calling start() and having the send_thread begin execution.
+        """
         while True:
             # Get the next package in the queue or block while waiting
             send_package = self.send_queue.get()
@@ -132,22 +154,37 @@ class Endpoint:
                 sock.sendall(send_package.package)
                 log.debug('Package sent!')
             except:
-                log.error(
+                log.exception(
                     'An error occurred while attempting to send a package!'
                 )
             finally:
                 sock.close()
+
+    def send(self):
+        pass
+
+    def received(self):
+        """Called and executed by recv_thread when new package received
+
+        Can be used to indicate that a new package arrived, but remember
+        that this is NOT called from the main thread, but from the
+        recv_thread thread!
+        """
+        pass
 
     def run(self):
         log.debug('Starting the recv server...')
         self.recv_thread.start()
         log.debug('Starting the send server...')
         self.send_thread.start()
+        self.running = True
 
         # Return self so that run can be called in line with initialization
         return self
 
     def close(self):
+        self.running = False
+
         # First stop the sending thread
         # Put None on the send queue to indicate the end of the send queue,
         # then wait for the send queue to clear, and send thread to return
