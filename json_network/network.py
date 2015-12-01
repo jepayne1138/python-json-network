@@ -72,11 +72,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
-    def __init__(self, *args, **kwargs):
-        # I popped the parent as I was getting an error if I passed the
-        # keyword 'parent' to the super().__init__() method.
-        self.parent = kwargs.pop('parent', None)
-        socketserver.TCPServer.__init__(self, *args, **kwargs)
+    pass
 
 
 class Endpoint:
@@ -102,8 +98,10 @@ class Endpoint:
         self.server = server(
             (self.address, self.port),
             ThreadedTCPRequestHandler,
-            parent=self,
         )
+
+        # Assign self as parent so the handle() method can access here
+        self.server.parent = self
 
         # Create threads
         self.recv_thread = threading.Thread(target=self.server.serve_forever)
