@@ -47,13 +47,17 @@ Section 3.  Extra Data Blocks
 Attributes:
     DATA_BLOCK_KEY (str): Key for serialized metadata of extra data blocks.
 """
+
+
 import struct
 import json
 import logging
 
+
 # Set up logging
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
+
 
 # Constants (not intended to be changed, but could be in theory if needed)
 HEADER_FORMAT = '>L'
