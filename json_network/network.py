@@ -7,9 +7,15 @@ Defines an Endpoint class that is utilized as both a server and client.
 import logging
 import socket
 import threading
-import socketserver
-import queue
 import collections
+try:
+    import socketserver
+except ImportError:
+    import SocketServer as socketserver
+try:
+    import queue
+except ImportError:
+    import Queue as queue
 from . import protocol
 
 
@@ -70,7 +76,7 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         # I popped the parent as I was getting an error if I passed the
         # keyword 'parent' to the super().__init__() method.
         self.parent = kwargs.pop('parent', None)
-        super().__init__(*args, **kwargs)
+        socketserver.TCPServer.__init__(self, *args, **kwargs)
 
 
 class Endpoint:

@@ -1,5 +1,7 @@
 venv*/
 *.txt
+*.pyc
+*.pyo
 __pycache__/
 test*.py
 
