@@ -1,5 +1,3 @@
-#! /usr/bin/env python3
-
 """Implements the protocol for serializing and deserializing data using JSON
 
 
@@ -52,14 +50,19 @@ Attributes:
 import struct
 import json
 import logging
-from typing import IO, Optional, List, Tuple, Dict
 
 # Set up logging
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
 
+# Constants (not intended to be changed, but could be in theory if needed)
+HEADER_FORMAT = '>L'
+# Metadata keywords
 DATA_DICT_KEY = 'data_dict'
 DATA_BLOCK_KEY = 'data_blocks'
+# Serialization defaults
+DFLT_ENCODING = 'utf-8'
+DFLT_ERRORS = 'strict'
 
 
 class DataBlock:
@@ -75,9 +78,7 @@ class DataBlock:
     """
 
     @classmethod
-    def from_binary_io(
-            cls, name: str, stream: IO[bytes],
-            encoding: Optional[str]=None):
+    def from_binary_io(cls, name, stream, encoding=None):
         """Instantiation method from a byte stream
 
         Args:
@@ -90,15 +91,10 @@ class DataBlock:
         Returns:
             DataBlock: New instance with no encoding by default.
         """
-        return cls(
-            name,
-            stream.read(),
-            encoding
-        )
+        return cls(name, stream.read(), encoding)
 
     @classmethod
-    def from_binary_file(
-            cls, name: str, stream: IO[str]):
+    def from_binary_file(cls, name, stream):
         """Instantiation method from an open file object
 
         Note:
@@ -124,7 +120,7 @@ class DataBlock:
             stream.encoding
         )
 
-    def __init__(self, name: str, data: bytes, encoding: Optional[str]=None):
+    def __init__(self, name, data, encoding=None):
         """Creates a new instance of DataBlock
 
         Sets attributes the the input parameters and size to the length of
@@ -136,12 +132,12 @@ class DataBlock:
             encoding (Optional[str]): Encoding of the byte string if it is
                 text. (default=None)
         """
-        self.name = name  # type: str
-        self.data = data  # type: bytes
-        self.encoding = encoding  # type: Optional[str]
-        self.size = len(data)  # type: int
+        self.name = name
+        self.data = data
+        self.encoding = encoding
+        self.size = len(data)
 
-    def metadata(self) -> Dict:
+    def metadata(self):
         """Prepares the metadata dict for this data block
 
         Creates and returns a dictionary of metadata for this datablock.
@@ -154,25 +150,22 @@ class DataBlock:
         metadata_dict = {
             'name': self.name,
             'size': self.size,
-        }  # type: Dict
+        }
         # Only add encoding if an encoding was given
         if self.encoding:
-            metadata_dict['encoding'] = self.encoding  # type: str
+            metadata_dict['encoding'] = self.encoding
         return metadata_dict
 
 
-def package(
-        data: Dict, data_blocks: List[DataBlock]=[],
-        header_fmt: str='>L', encoding: str='utf-8',
-        errors: str='strict') -> bytes:
-    """Packages a dict and optional DataBlocks according to the protocol
+def serialize(
+        data, data_blocks=[],
+        encoding=DFLT_ENCODING, errors=DFLT_ERRORS):
+    """Serializes a dict and optional DataBlocks according to the protocol
 
     Args:
         data (Dict): Data to be serialized and packaged into a byte string.
         data_blocks (List[DataBlock]): Zero or more DataBlock instances to
             be concatenated to the byte string. (default=[])
-        header_fmt (str): Format string for packaging an integer
-            representing the size of the JSON as binary data. (default='>L')
         encoding (str): Encoding for the JSON byte string. (default='utf-8')
         errors (str): Response when the JSON cannot be converted with the
             given encoding. (accepts: ['strict', 'replace', 'ignore'],
@@ -188,12 +181,14 @@ def package(
     serialize_data = {}
 
     # Validate error parameter
-    errors = errors if errors in ['strict', 'replace', 'ignore'] else 'strict'
-
+    if errors in ['strict', 'replace', 'ignore']:
+        errors = errors
+    else:
+        errors = DFLT_ERRORS
     # Prepare the extra data blocks if any exist
     # If there are any data_blocks, add a list for the metadata
     if len(data_blocks) > 0:
-        serialize_data[DATA_BLOCK_KEY] = []  # type: List
+        serialize_data[DATA_BLOCK_KEY] = []
 
     # Add the data block metadata to the data dict
     for data_block in data_blocks:
@@ -201,33 +196,31 @@ def package(
     # Concatenate all binary data
     data_block_bytes = b''.join(
         [block.data for block in data_blocks]
-    )  # type: bytes
+    )
 
     # Add the given data to the serialization dict
-    serialize_data[DATA_DICT_KEY] = data  # type: Dict
+    serialize_data[DATA_DICT_KEY] = data
 
     # Convert input data dict to encoded byte string
-    data_str = json.dumps(serialize_data, ensure_ascii=False)  # type: str
-    data_bytes = data_str.encode(encoding=encoding, errors=errors)  # type: bytes
+    data_str = json.dumps(serialize_data, ensure_ascii=False)
+    data_bytes = data_str.encode(encoding=encoding, errors=errors)
 
     # Get size of encoded JSON in number of bytes
-    header_value = len(data_bytes)  # type: int
+    header_value = len(data_bytes)
     # Package JSON size value into a 4 byte structure
-    header_bytes = struct.pack(header_fmt, header_value)  # type: bytes
+    header_bytes = struct.pack(HEADER_FORMAT, header_value)
 
     return b''.join([header_bytes, data_bytes, data_block_bytes])
 
 
-def unpackage(
-        serialized_data: bytes, header_fmt: str='>L', encoding: str='utf-8',
-        errors: str='strict') -> Tuple[Dict, List[DataBlock]]:
-    """Unpackages a byte string to its original dict and DataBlocks
+def deserialize(
+        serialized_data,
+        encoding=DFLT_ENCODING, errors=DFLT_ERRORS):
+    """Deserializes a byte string to its original dict and DataBlocks
 
     Args:
         serialized_data (bytes): Byte string to be unpackaged according to
             the protocol
-        header_fmt (str): Format string for unpacking the integer
-            representing the size of the JSON as binary data. (default='>L')
         encoding (str): Encoding for the JSON byte string. (default='utf-8')
         errors (str): Response when the JSON cannot be converted with the
             given encoding. (accepts: ['strict', 'replace', 'ignore'],
@@ -238,18 +231,21 @@ def unpackage(
             input data and a list of DataBlock objects if any exist.
     """
     # Validate error parameter
-    errors = errors if errors in ['strict', 'replace', 'ignore'] else 'strict'
+    if errors in ['strict', 'replace', 'ignore']:
+        errors = errors
+    else:
+        errors = DFLT_ERRORS
 
     # Get header size from the first bytes of the data based on header format
-    header_size = struct.calcsize(header_fmt)  # type: int
-    header_bytes = serialized_data[:header_size]  # type: bytes
-    header_value = struct.unpack(header_fmt, header_bytes)[0]  # type: int
+    header_size = struct.calcsize(HEADER_FORMAT)
+    header_bytes = serialized_data[:header_size]
+    header_value = struct.unpack(HEADER_FORMAT, header_bytes)[0]
 
     data_bytes = serialized_data[
         header_size:header_size+header_value
-    ]  # type: bytes
-    data_str = data_bytes.decode(encoding, errors=errors)  # type: str
-    data_dict = json.loads(data_str)  # type: Dict
+    ]
+    data_str = data_bytes.decode(encoding, errors=errors)
+    data_dict = json.loads(data_str)
 
     blocks = []
 
@@ -258,14 +254,14 @@ def unpackage(
 
     # Unpackage any data blocks
     if DATA_BLOCK_KEY in data_dict:
-        block_start = header_size+header_value  # type: int
-        for metadata in data_dict[DATA_BLOCK_KEY]:  # type: Dict
+        block_start = header_size+header_value
+        for metadata in data_dict[DATA_BLOCK_KEY]:
             block = DataBlock(
                 name=metadata['name'],
                 data=serialized_data[block_start:block_start+metadata['size']],
                 encoding=metadata['encoding'] \
                     if 'encoding' in metadata else None,
-            )  # type: DataBlock
+            )
 
             # Add to instance to list of all blocks
             blocks.append(block)

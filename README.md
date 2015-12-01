@@ -1,8 +1,6 @@
 #Python JSON Network
 This is a package intended to simplify network communication for simple Python applications.  It wraps lower-level networking code in a basic endpoint class that is utilized as both the network client and server, and implements a custom protocol that serializes the data that is to be transfered as JSON and de-serializes upon receiving the byte-stream.
 
-NOTE:  **Written with 3.5 type hints, no current plans to back-port to 2.7**
-
 #JSON Serialization Protocol Definition
 The connection shall be made with a TCP connection, thus ensuring properly
 ordered receiving and data integrity.
