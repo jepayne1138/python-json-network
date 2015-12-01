@@ -116,6 +116,10 @@ class Endpoint:
             # Get the next package in the queue or block while waiting
             send_package = self.send_queue.get()
 
+            # Exit the sending loop if a None value was put on the queue
+            if send_package is None:
+                break
+
             # Send the package
             sock = socket.socket(
                 socket.AF_INET, socket.SOCK_STREAM
@@ -140,9 +144,26 @@ class Endpoint:
         log.debug('Starting the send server...')
         self.send_thread.start()
 
+        # Return self so that run can be called in line with initialization
+        return self
+
     def close(self):
-        self.server.close()
-        self.recv_thread.join()
+        # First stop the sending thread
+        # Put None on the send queue to indicate the end of the send queue,
+        # then wait for the send queue to clear, and send thread to return
+        self.send_queue.put(None)
+        self.send_queue.join()
+        self.send_thread.join()
+
+        # Now stop the receiving thread.  This is a little more tricky as
+        # we don't know what is being receive.  If we simple join the queue
+        # and then the server, more could be received after the queue joins
+        # but before the server.
+        # TODO:  I have some ideas on how to make this be handled better,
+        #        and hopefully one of them will be implemented later.  For
+        #        now, we just kill the server and hope we got everything.
+        self.server.shutdown()
+        self.recv_queue.join()
 
 
 def package(
