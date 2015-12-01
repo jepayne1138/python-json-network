@@ -5,3 +5,4 @@ test*.py
 
 # Whitelist
 !protocol.txt
+!license.txt
