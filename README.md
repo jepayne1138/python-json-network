@@ -41,4 +41,26 @@ extra necessary data, and is parsed as defined in Section 2 (see below).
       indicator in 'data_blocks')
 * Any extra data that is not parsed is ignored
 
+#Usage Examples
+```python
+import json_network
+import queue
+
+# Create an Endpoint object
+endpoint = json_network.Endpoint('localhost', 80)
+
+# Start the server (non-blocking run() method call starts the threaded server)
+endpoint.run()
+
+# Check incoming queue for any incoming serialized data
+# This can be done in any way you want, as the recv_queue is just a stdlib Queue
+while True:
+      try:
+          recv_package = endpoint.recv_queue.get(False)
+          data, blocks = json_network.deserialize(recv_package)
+      except queue.Empty():
+          pass
+
+```
+
 **More details on the way...**

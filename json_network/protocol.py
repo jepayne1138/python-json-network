@@ -162,7 +162,7 @@ class DataBlock:
 
 
 def serialize(
-        data, data_blocks=[],
+        data=None, data_blocks=None,
         encoding=DFLT_ENCODING, errors=DFLT_ERRORS):
     """Serializes a dict and optional DataBlocks according to the protocol
 
@@ -182,6 +182,12 @@ def serialize(
     Exceptions:
       ValueError:  Disallowed key in input data dictionary.
     """
+    # Set default values
+    if data is None:
+        data = {}
+    if data_blocks is None:
+        data_blocks = []
+
     serialize_data = {}
 
     # Validate error parameter
@@ -203,7 +209,8 @@ def serialize(
     )
 
     # Add the given data to the serialization dict
-    serialize_data[DATA_DICT_KEY] = data
+    if data:
+        serialize_data[DATA_DICT_KEY] = data
 
     # Convert input data dict to encoded byte string
     data_str = json.dumps(serialize_data, ensure_ascii=False)
