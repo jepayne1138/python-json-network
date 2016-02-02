@@ -1,4 +1,9 @@
 #Python JSON Network
+***And after writing this package, I actually figured out how to use AsyncIO, thus demonstrating why we don't reinvent the wheel***
+
+This was still a useful learning exercise, and I'll leave it up, but it really should never be used.
+
+----
 This is a package intended to simplify network communication for simple Python applications.  It wraps lower-level networking code in a basic endpoint class that is utilized as both the network client and server, and implements a custom protocol that serializes the data that is to be transfered as JSON and de-serializes upon receiving the byte-stream.
 
 #JSON Serialization Protocol Definition
